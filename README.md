@@ -4,17 +4,29 @@ Start jetty server with maven
 
 mvn jetty:run
 
+
+# Start login
+- http://localhost:8080/
+
 # CRUD REST-APIs :
 
-- GET http://localhost:8080/api/categories/v1/all
+Get customer lists
+- GET http://localhost:8080/api/customers/v1/all/{offset}/{limit}
 
-- GET http://localhost:8080/api/cagetoires/v1/{id}
+Get customer by id
+- GET http://localhost:8080/api/customers/v1/{id}
 
-- POST http://localhost:8080/api/cagetoires/v1/{id}
+Create customer
+- POST http://localhost:8080/api/customers/v1
 
-- DELETE http://localhost:8080/api/cagetoires/v1/{id}
+Delete customer
+- DELETE http://localhost:8080/api/customers/v1/{id}
 
-- PUT http://localhost:8080/api/cagetoires/v1/{id}
+Updte customer
+- PUT http://localhost:8080/api/customers/v1/{id}
+
+Get table schema
+- GET http://localhost:8080/api/customers/v1/schema
 
 
 # Maven spring-jdbc  
@@ -41,28 +53,25 @@ mvn jetty:run
 # Create database    
 ```java
 =====initial sql schema.sql======== run it mysql console
-DROP DATABASE IF EXISTS rupp_test;
-CREATE DATABASE rupp_test;
-USE rupp_test;
+DROP DATABASE IF EXISTS test;
+CREATE DATABASE test;
+USE test;
          
-DROP TABLE IF EXISTS category;
-CREATE TABLE category (
-   id INT NOT NULL AUTO_INCREMENT,
-   name VARCHAR(400) NOT NULL,
-   createdDate timestamp DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (ID)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
- 
-INSERT INTO category (name) values ('Restaurant');
-INSERT INTO category (name) values ('Food and Drink');
-INSERT INTO category (name) values ('Entertainment');
-INSERT INTO category (name) values ('Outdoor');
-INSERT INTO category (name) values ('Days Out');
-INSERT INTO category (name) values ('Life Style');
-INSERT INTO category (name) values ('Shopping');
-INSERT INTO category (name) values ('Service');
-INSERT INTO category (name) values ('Sports and Fitness');
-INSERT INTO category (name) values ('Health and Beauty');
+DROP TABLE IF EXISTS tab_customer;
+CREATE TABLE `tab_customer` (
+	`id` INT(11) NOT NULL AUTO_INCREMENT,
+	`firstName` VARCHAR(50) NULL DEFAULT NULL,
+	`lastName` VARCHAR(50) NULL DEFAULT NULL,
+	`gender` VARCHAR(10) NULL DEFAULT NULL,
+	`email` VARCHAR(50) NULL DEFAULT NULL,
+	`phone` VARCHAR(50) NULL DEFAULT NULL,
+	`address` VARCHAR(50) NULL DEFAULT NULL,
+	`dob` DATE NULL DEFAULT NULL,
+	PRIMARY KEY (`id`)
+)
+ENGINE=MyISAM
+AUTO_INCREMENT=3
+;
 
 ==============================================
 ```
@@ -86,9 +95,8 @@ INSERT INTO category (name) values ('Health and Beauty');
 
     <servlet>
         <servlet-name>spring-dispatcher</servlet-name>
-        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-        <init-param>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>     
+        <init-param>        
             <param-name>contextClass</param-name>
             <param-value>org.springframework.web.context.support.AnnotationConfigWebApplicationContext</param-value>
         </init-param>
@@ -96,19 +104,50 @@ INSERT INTO category (name) values ('Health and Beauty');
             <param-name>contextConfigLocation</param-name>
             <param-value>com.rupp.spring.config.MvcConfig</param-value>
         </init-param>
+        <load-on-startup>1</load-on-startup>
     </servlet>
     <servlet-mapping>
         <servlet-name>spring-dispatcher</servlet-name>
         <url-pattern>/api/*</url-pattern>
     </servlet-mapping>
+    
+    
      
-   
+    
+    <servlet>
+    	<servlet-name>customerList</servlet-name>    	
+    	<jsp-file>/customer_list.jsp</jsp-file>
+    </servlet>
+    <servlet-mapping>
+    	<servlet-name>customerList</servlet-name>
+    	<url-pattern>customerlist</url-pattern>
+    </servlet-mapping>
+    
+    <servlet>
+    	<servlet-name>CustomerForm</servlet-name>    	
+    	<jsp-file>/customer_form.jsp</jsp-file>
+    </servlet>
+    <servlet-mapping>
+    	<servlet-name>CustomerForm</servlet-name>
+    	<url-pattern>/customerform</url-pattern>
+    </servlet-mapping>
+       
+    <servlet>
+    	<servlet-name>signIn</servlet-name>    	
+    	<jsp-file>/sign_in.jsp</jsp-file>
+    </servlet>
+    <servlet-mapping>
+    	<servlet-name>signIn</servlet-name>
+    	<url-pattern>signin</url-pattern>
+    </servlet-mapping>
+    
     <!-- welcome file -->
    <welcome-file-list>  
-   <welcome-file>index.jsp</welcome-file>  
+   <welcome-file>sign_in.jsp</welcome-file>  
    <welcome-file>index.html</welcome-file>  
-  </welcome-file-list>  
+  </welcome-file-list>
 </web-app>
+
 
 
 ====================Spring Java-based configuration============
@@ -165,7 +204,10 @@ public class SkipNullObjectMapper extends ObjectMapper {
 
 package com.rupp.spring.controller;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -178,53 +220,50 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.rupp.spring.domain.DCategory;
-import com.rupp.spring.service.CategoryService;
+import com.rupp.spring.domain.DCustomer;
+import com.rupp.spring.service.CustomerService;
 
 @Controller
-@RequestMapping("categories")
-public class CategoryController {
-    @Autowired
-    private CategoryService service;
-    
-
-    
-    //@RequestMapping(value = "/v1", method = RequestMethod.GET)
-    @GetMapping("/v1/all")
+@RequestMapping("customers")
+public class CustomerController {
+	@Autowired
+	private CustomerService customerService;
+	
+	//@RequestMapping(value = "/v1", method = RequestMethod.GET)
+    @GetMapping("/v1/all/{offset}/{limit}")
     @ResponseBody
-    public List<DCategory> getDCategories() {
-        return service.list();
+    public Map<String, Object> getDCustomers(@PathVariable("offset") int offset,@PathVariable("limit") int limit) {    
+        return customerService.list(offset,limit);
     }
 
     //@RequestMapping(value = "/v1/{id}", method = RequestMethod.GET)
     @GetMapping("/v1/{id}")
-    public ResponseEntity<DCategory> getDCategory(@PathVariable("id") Long id) {
+    public ResponseEntity<DCustomer> getDCustomer(@PathVariable("id") Long id) {
 
-        DCategory category = service.get(id);
-        if (category == null) {
-            return new ResponseEntity("No DCategory found for ID " + id, HttpStatus.NOT_FOUND);
+        DCustomer customer = customerService.getById(id);
+        if (customer == null) {
+            return new ResponseEntity("No DCustomer found for ID " + id, HttpStatus.NOT_FOUND);
         }
 
-        return new ResponseEntity<>(category, HttpStatus.OK);
+        return new ResponseEntity<>(customer, HttpStatus.OK);
     }
 
     //@RequestMapping(value = "/v1", method = RequestMethod.POST)
     @PostMapping(value = "/v1")
-    public ResponseEntity<DCategory> createDCategory(@RequestBody DCategory category) {
-
-        service.create(category);
-
-        return new ResponseEntity<>(category, HttpStatus.OK);
+    public ResponseEntity<DCustomer> createDCustomer(@RequestBody DCustomer customer) {    
+    	customerService.create(customer);
+        return new ResponseEntity<>(customer, HttpStatus.OK);
     }
 
     //@RequestMapping(value = "/v1/{id}", method = RequestMethod.DELETE)
     @DeleteMapping("/v1/{id}")
-    public ResponseEntity deleteDCategory(@PathVariable Long id) {
+    public ResponseEntity deleteDCustomer(@PathVariable Long id) {
 
-        if (null == service.delete(id)) {
-            return new ResponseEntity("No DCategory found for ID " + id, HttpStatus.NOT_FOUND);
+        if (null == customerService.delete(id)) {
+            return new ResponseEntity("No DCustomer found for ID " + id, HttpStatus.NOT_FOUND);
         }
 
         return new ResponseEntity<>(id, HttpStatus.OK);
@@ -232,236 +271,126 @@ public class CategoryController {
     }
     //@RequestMapping(value = "/v1/{id}", method = RequestMethod.PUT)
     @PutMapping("/v1/{id}")
-    public ResponseEntity updateDCategory(@PathVariable Long id, @RequestBody DCategory category) {
+    public ResponseEntity updateDCustomer(@PathVariable Long id, @RequestBody DCustomer customer) {
 
-        category = service.update(id, category);
+        customer = customerService.update(id, customer);
 
-        if (null == category) {
-            return new ResponseEntity("No DCategory found for ID " + id, HttpStatus.NOT_FOUND);
+        if (null == customer) {
+            return new ResponseEntity("No DCustomer found for ID " + id, HttpStatus.NOT_FOUND);
         }
 
-        return new ResponseEntity(category, HttpStatus.OK);
+        return new ResponseEntity(customer, HttpStatus.OK);
     }
+    
+    /**
+     * <pre>
+     * schema api : Content-Type: application/x-www-form-urlencoded 
+     * example json value
+     * 
+     *   {
+     *       primaryKeyName: "id",
+     *       tableName: "Country",
+     *       primaryKeyType: "long",
+     *       columns: {
+     *           comingSoon: "boolean",
+     *           flagImageUrl: "text",
+     *           isoCode: "text",
+     *           name: "text",
+     *           state: "long",
+     *           tcsUrl: "text",
+     *           createdDate: "datetime"
+     *        }
+     *   }
+     *   </pre>
+     * @param request
+     */
+    @RequestMapping(value = "v1/schema", method = { RequestMethod.GET })
+    public ResponseEntity<Map<String, Object>> getschma(HttpServletRequest request) {
+        final Map<String, Object> body = new HashMap<String, Object>();
+        final Map<String,String> columns = new HashMap<>();
+        
+        columns.put("firstName", "text");
+        columns.put("lastName", "text");
+        columns.put("gender", "text");
+        columns.put("email", "text");
+        columns.put("phone", "text");
+        columns.put("address", "text");
+        columns.put("dob", "datetime");
+        
+        body.put("columns", columns);
+        body.put("tableName", "tab_customer");
+        body.put("primaryKeyName", "id");
+        body.put("primaryKeyType", "long");
+        
+        return new ResponseEntity<Map<String, Object>>(body, HttpStatus.OK);
+    }
+    
 }
+
 ====================
 
 Service layer :
 ===================
 package com.rupp.spring.service;
 
-import java.util.List;
+import java.util.Map;
 
-import com.rupp.spring.domain.DCategory;
+import com.rupp.spring.domain.DCustomer;
 
-public interface CategoryService {
-    List<DCategory> list();
-    DCategory get(Long id);
-    DCategory create(DCategory dCategory);
+public interface CustomerService {
+	Map<String, Object> list(int offset,int limit);
+    DCustomer getById(Long id);
+    DCustomer create(DCustomer dCust);
     Long delete(Long id);
-    DCategory update(Long id, DCategory dCategory);
+    DCustomer update(Long id, DCustomer dCust);
 }
+
 
 package com.rupp.spring.service;
 
-import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.rupp.spring.dao.CategoryDao;
-import com.rupp.spring.domain.DCategory;
+import com.rupp.spring.dao.CustomerDaoImpl;
+import com.rupp.spring.domain.DCustomer;
 
-@Service("categorySevice")
-public class CategoryServiceImpl implements CategoryService {
+@Service("customerSevice")
+public class CustomerServiceImpl implements CustomerService{
+	
+	@Autowired
+	private CustomerDaoImpl dao;
 
-    @Autowired
-    private CategoryDao dao;
-    
-    @Override
-    public List<DCategory> list() {
-        return dao.list();
-    }
+	@Override
+	public Map<String, Object> list(int offset,int limit) {
+		// TODO Auto-generated method stub		
+		return dao.list(offset,limit);
+	}
 
-    @Override
-    public DCategory get(Long id) {
-        return dao.get(id);
-    }
+	@Override
+	public DCustomer getById(Long id) {
+		// TODO Auto-generated method stub
+		return dao.getById(id);
+	}
 
-    @Override
-    public DCategory create(DCategory dCategory) {
-        return dao.create(dCategory);
-    }
+	@Override
+	public DCustomer create(DCustomer dCust) {
+		// TODO Auto-generated method stub
+		return dao.create(dCust);
+	}
 
-    @Override
-    public Long delete(Long id) {
-        return dao.delete(id);
-    }
+	@Override
+	public Long delete(Long id) {
+		// TODO Auto-generated method stub
+		return dao.delete(id);
+	}
 
-    @Override
-    public DCategory update(Long id, DCategory dCategory) {
-        
-        if (dao.get(id) == null) {
-            return null;
-        }
-        dCategory.setId(id);
-        return dao.update(dCategory);
-    }
+	@Override
+	public DCustomer update(Long id, DCustomer dCust) {
+		// TODO Auto-generated method stub
+		return dao.update(id,dCust);
+	}
+	
 }
 
-==================================dao Layer==========
- package com.rupp.spring.dao;
-
-import java.util.List;
-
-import com.rupp.spring.domain.DCategory;
-
-public interface CategoryDao {
-    List<DCategory> list();
-    DCategory get(Long id);
-    DCategory create(DCategory dCategory);    
-    Long delete(Long id);
-    DCategory update(DCategory dCategory);
-}
- 
-package com.rupp.spring.dao;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Date;
-import java.util.List;
-
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Repository;
-
-import com.rupp.spring.domain.DCategory;
-
-@Repository
-public class CategoryDaoImpl implements CategoryDao {
-    
-    private JdbcTemplate jdbcTemplate;
-    
-    public CategoryDaoImpl() {
-        jdbcTemplate = new JdbcTemplate(DBCP2DataSourceUtils.getDataSource());
-    }
-    public List<DCategory> list() {
-        final String sql = "select * from category";
-        //List<DCategory> list = this.jdbcTemplate.queryForList(sql,DCategory.class);
-        List<DCategory> list = this.jdbcTemplate.query(sql, new RowMapper<DCategory>() {
-
-            @Override
-            public DCategory mapRow(ResultSet rs, int paramInt) throws SQLException {
-                final DCategory domain = new DCategory();
-                domain.setId(rs.getLong("id"));
-                domain.setName(rs.getString("name"));
-                domain.setCreatedDate(new Date(rs.getTimestamp("createdDate").getTime()));
-                return domain;
-            }
-            
-        });
-        return list;
-    }
-
-    public DCategory get(Long id) {
-        final String sql = "select * from category where id = ?";
-        
-        try {
-            //select for object
-            final DCategory obj = jdbcTemplate.queryForObject(sql, new Object[] { id }, new RowMapper<DCategory>() {
-
-                @Override
-                public DCategory mapRow(ResultSet rs, int paramInt) throws SQLException {
-                    final DCategory domain = new DCategory();
-                    domain.setId(rs.getLong("id"));
-                    domain.setName(rs.getString("name"));
-                    domain.setCreatedDate(new Date(rs.getTimestamp("createdDate").getTime()));
-                    return domain;
-                }
-            });
-            return obj;
-        } catch (EmptyResultDataAccessException e) {
-            System.out.println("NOT FOUND " + id + " in Table" );
-            return null;
-        }
-    }
-
-    public DCategory create(DCategory dCategory) {
-        final String sql = "INSERT INTO category (name) VALUES (?)";
-        jdbcTemplate.update(sql, new Object[] { dCategory.getName() });
-        return dCategory;
-    }
-
-    public Long delete(Long id) {
-        final String sql = "Delete from category where id =?";
-        int result = jdbcTemplate.update(sql, new Object[] { id });
-        return result == 1 ? id : null;
-    }
-
-    public DCategory update(DCategory dCategory) {
-
-        final String sql = "UPDATE category set name =? where id=?";
-        int result = jdbcTemplate.update(sql, new Object[] { dCategory.getName() , dCategory.getId()});
-        return result == 1 ? dCategory : null;
-    }
-}
-
-=======================DBCP2 Datasource connection========
-package com.rupp.spring.dao;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Properties;
-
-import javax.sql.DataSource;
-
-import org.apache.commons.dbcp2.BasicDataSource;
-import org.apache.commons.dbcp2.BasicDataSourceFactory;
-/**
- * @author Sophea <a href='mailto:smak@dminc.com'> sophea </a>
- * @version $id$ - $Revision$
- * @date 2017
- */
-public class DBCP2DataSourceUtils {
-    private static BasicDataSource ds = null;
-    
-    static {
-        String propsFile = "db.properties";
-        Properties props = new Properties();
-        
-        try {
-            props.load(Thread.currentThread().getContextClassLoader().getResource(propsFile).openStream());
-            ds = BasicDataSourceFactory.createDataSource(props);
-        } catch (Exception e) {
-            System.out.println("Error :" + e.getMessage());
-            props = null;
-        }
-    }
-    /**get connection from pool*/
-    public static Connection getConnection() throws SQLException {
-        return ds.getConnection();
-    }
-    
-    public static DataSource getDataSource() {
-        return ds;
-    }
-    public static void printDataSourceState() {
-        System.out.println("NumActive: " + ds.getNumActive());
-        System.out.println("NumIdle: " + ds.getNumIdle());
-    }
-    }
-==================================db.properties============
-driverClassName=com.mysql.jdbc.Driver
-url=${database.url}
-username=${database.username}
-password=${database.password}
-
-=====Maven to replace these properties=======
-<properties>
-    <database.driver>com.mysql.jdbc.Driver</database.driver>
-    <database.url>jdbc:mysql://localhost:3306/rupp_test?autoReconnect=true</database.url>
-    <database.username>root</database.username>
-    <database.password>root</database.password>    
-  </properties>
-  
-```

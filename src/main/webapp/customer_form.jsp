@@ -2,7 +2,7 @@
 <%@ page import="java.text.DateFormat" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
-<%@page session="false"%>
+<%@page session="true"%>
 <%@taglib prefix="spring" uri="http://www.springframework.org/tags"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <c:url var="home" value="/" scope="request"></c:url>
@@ -66,7 +66,7 @@
 	                            <a class="dropdown-item" href="#"><span class="font-icon glyphicon glyphicon-cog"></span>Settings</a>
 	                            <a class="dropdown-item" href="#"><span class="font-icon glyphicon glyphicon-question-sign"></span>Help</a>
 	                            <div class="dropdown-divider"></div>
-	                            <a class="dropdown-item" href="/signout"><span class="font-icon glyphicon glyphicon-log-out"></span>Logout</a>
+	                            <a class="dropdown-item" href="#"  id="signout"><span class="font-icon glyphicon glyphicon-log-out"></span>Logout</a>
 	                        </div>
 	                    </div>
 	
@@ -100,7 +100,7 @@
 	   
 	</nav><!--.side-menu-->
 
-	<div class="page-content">		
+	<div class="page-content">	
 		<h5 class="m-t-lg with-border">Add/Update Customer</h5>		
 		<div class="row">
 			<form id="cust_form" method="post">
@@ -112,13 +112,13 @@
 						<div class="col-xs-6">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="firstname">First Name</label>
-								<input type="text" class="form-control" name="firstName" id="firstName" placeholder="First Name" value=""/>						
+								<input type="text" class="form-control" required="required" name="firstName" id="firstName" placeholder="First Name" value=""/>						
 							</fieldset>
 						</div>
 						<div class="col-xs-6">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="lastname">Last Name</label>
-								<input type="text" class="form-control" name="lastName" id="lastName" placeholder="Last Name" value="">
+								<input type="text" class="form-control" name="lastName" required="required" id="lastName" placeholder="Last Name" value="">
 							</fieldset>
 						</div>
 					</div>
@@ -126,7 +126,7 @@
 						<div class="col-xs-6">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="gender">Gender</label>
-								<select class="form-control" id="gender" name="gender">
+								<select class="form-control" id="gender" name="gender" required="required">
 									<option>Male</option>
 									<option>Female</option>				
 								</select>
@@ -136,7 +136,7 @@
 						<div class="col-xs-6">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="date-mask-input">Date of birth</label>
-								<input type="text" class="form-control" name="dob" id="dob" value="" placeholder="dd/mm/yyyy"/>						
+								<input type="text" class="form-control" name="dob" id="dob" required="required" value="" placeholder="dd/mm/yyyy"/>						
 							</fieldset>
 						</div>				
 					</div>
@@ -144,13 +144,13 @@
 						<div class="col-xs-6">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="email">Email</label>
-								<input type="email" class="form-control" name="email" id="email" placeholder="Email" value="">						
+								<input type="email" class="form-control" name="email" id="email" required="required" placeholder="Email" value="">						
 							</fieldset>
 						</div>
 						<div class="col-xs-6">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="phone">Phone</label>
-								<input type="text" class="form-control" name="phone" id="phone" placeholder="Phone" value="">
+								<input type="text" class="form-control" name="phone" id="phone" required="required" placeholder="Phone" value="">
 							</fieldset>
 						</div>
 					</div>
@@ -158,7 +158,7 @@
 						<div class="col-xs-12">
 							<fieldset class="form-group">
 								<label class="form-label semibold" for="address">Address</label>
-								<input type="text" class="form-control" name="address" id="address" placeholder="Address" value="">
+								<input type="text" class="form-control" name="address" id="address" required="required" placeholder="Address" value="">
 							</fieldset>
 						</div>
 					</div>
@@ -310,6 +310,43 @@
 			
 			//alert('123');
 			
+			//signout
+			$("#signout").click(function(){
+	        	
+	        	$.ajax({
+					type : "GET",			
+					url : "${home}api/signout/v1/",				
+					statusCode: {
+						400: function(data){
+							var responseObject = JSON.parse(data.responseText);
+							$('#httpCode').html(responseObject.httpCode);
+							$('#responseMessage').html(responseObject.message);
+							$('#warningModal').modal('show');
+						},
+						500: function(data){
+							$('#httpCode').html("500");
+							$('#responseMessage').html("Something went wrong!");
+							$('#warningModal').modal('show');
+						}
+					},
+					success : function(data) {
+						//alert(data);					
+						window.location.href = "${home}signin";					
+					},
+					error : function(e) {
+						console.log("ERROR: ", e);
+						//alert("error:"+JSON.stringify(e));
+						//display(e);
+						//alert("error:"+e);
+					},
+					done : function(e) {
+						console.log("DONE");
+						//alert("done");
+					}
+				});
+	        	
+	        });
+			
 			
 		});
 		/**
@@ -339,10 +376,10 @@
 		// invoke update API
 		function crudUpdateEntity() {
 		    var body = crudUpsertEntity("#update_");
-		    alert(JSON.stringify(body));
+		    //alert(JSON.stringify(body));
 		    crudUpdate(body.id, body, function(data, statusText, jqXHR) {
-		    	alert(JSON.stringify(data));
-		    	$('#successText').html("<strong>Success!</strong> Update update successfully.")
+		    	//alert(JSON.stringify(data));
+		    	$('#successText').html("<strong>Success!</strong> Update successfully.")
 		    	$('#successModal').modal('show');
 		    });
 		}
@@ -457,18 +494,6 @@
 		}
 
 
-		/**
-		 * API for delete
-		 * Method: DELETE
-		 * path_variable: id
-		 * */
-		function crudDelete(id, successFunction) {
-		    $.ajax({
-				url: apiUrl + "v1/"+id,
-				type: 'DELETE',
-				dataType: 'json'
-			}).success(successFunction);
-		}
 
 	</script>
 

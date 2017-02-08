@@ -1,6 +1,6 @@
 <%@page import="java.util.ArrayList"%>
 <%@ page import="com.rupp.spring.domain.DCustomer" %>
-<%@page session="false"%>
+<%@page session="true"%>
 <%@taglib prefix="spring" uri="http://www.springframework.org/tags"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <c:url var="home" value="/" scope="request"></c:url>
@@ -60,7 +60,7 @@
 	                            <a class="dropdown-item" href="#"><span class="font-icon glyphicon glyphicon-cog"></span>Settings</a>
 	                            <a class="dropdown-item" href="#"><span class="font-icon glyphicon glyphicon-question-sign"></span>Help</a>
 	                            <div class="dropdown-divider"></div>
-	                            <a class="dropdown-item" href="/signout"><span class="font-icon glyphicon glyphicon-log-out"></span>Logout</a>
+	                            <a class="dropdown-item" href="#" id="signout"><span class="font-icon glyphicon glyphicon-log-out"></span>Logout</a>
 	                        </div>
 	                    </div>
 	
@@ -93,7 +93,7 @@
 	
 	   
 	</nav><!--.side-menu-->
-
+	
 	<div class="page-content">
 		<div class="container-fluid">
 			<section class="box-typical">
@@ -106,7 +106,7 @@
 							<a href="/customerform" class="btn"><span class="glyphicon glyphicon-plus small"></span> Add</a>
 						</div>
 					</div>
-				</header>
+				</header>				
 				<div class="box-typical-body">
 					<div class="table-responsive">
 						<table id="result_list" class="table table-bordered table-hover">
@@ -169,13 +169,16 @@
   	var url	=	"/customerlist?page=";
   	var limit	=	2;
 	$(document).ready(function(){
-		
+		//check if not yet login redirect to login
+		if("${sessionScope.login}"=="" || "${sessionScope.login}"!="true"){
+			window.location.href = "${home}signin";
+		}
 		
 		//alert('abc');
 		
 		var page	=	"${param['page']}";
 		if(page=="") page	=	1;
-		var offset	=	(page-1)*limit;		
+		var offset	=	(page-1)*limit;			
 		$.ajax({
 			type : "GET",			
 			url : "${home}api/customers/v1/all/"+offset+"/"+limit,			
@@ -199,9 +202,12 @@
 				var strPage	=	"";
 				var currentPage	=	1;
 				if("${param['page']}"!="") currentPage	="${param['page']}";				
-			  	var totalPage	=	1;						  	
+			  	var totalPage	=	1;
+			  	//alert(arr.total);
 			  	if(arr.total != null)	totalPage	=	(arr.total/limit);
-			  									  									  
+			  	if(arr.total%limit>0)	totalPage++;
+			  				  	
+			  	
 			    if (currentPage>1) {	    	
 			    	var previous	=	Number(currentPage)-1;
 			        strPage+="<li class=\"page-item\"><a class=\"page-link\" href=\""+url+previous+"\" tabindex=\"-1\">Previous</a></li>";
@@ -230,8 +236,7 @@
 			},
 			error : function(e) {
 				console.log("ERROR: ", e);
-				//display(e);
-				//alert("error:"+e);
+				
 			},
 			done : function(e) {
 				console.log("DONE");
@@ -243,23 +248,51 @@
 		$(document).on("click",".btndelete",function(){
 			//alert('123');
 			var id	=	$(this).attr("id");
-			alert(id);
+			//alert(id);
 			$('#confirmModal').modal('show');
 			$('#deleteAPI').on('click', function(){				
-				crudDelete(id, function(){});				
+				crudDelete(id, function(data){});		
 				window.location.reload();
 			});
 		});
 		
-		
+		//signout
+		$("#signout").click(function(){
+        	
+        	$.ajax({
+				type : "GET",			
+				url : "${home}api/signout/v1/",				
+				statusCode: {
+					400: function(data){
+						var responseObject = JSON.parse(data.responseText);
+						$('#httpCode').html(responseObject.httpCode);
+						$('#responseMessage').html(responseObject.message);
+						$('#warningModal').modal('show');
+					},
+					500: function(data){
+						$('#httpCode').html("500");
+						$('#responseMessage').html("Something went wrong!");
+						$('#warningModal').modal('show');
+					}
+				},
+				success : function(data) {
+					//alert(data);					
+					window.location.href = "${home}signin";					
+				},
+				error : function(e) {
+					console.log("ERROR: ", e);
+					//alert("error:"+JSON.stringify(e));
+					
+				},
+				done : function(e) {
+					console.log("DONE");
+					//alert("done");
+				}
+			});
+        	
+        });
 		
 	});
-	function display(data) {
-		var json = "<h4>Ajax Response</h4><pre>"
-				+ JSON.stringify(data, null, 4) + "</pre>";
-		//$('#feedback').html(json);
-		//alert(json);
-	}
 	
 	/**
 	 * API for delete
